@@ -1,6 +1,7 @@
 import sqlite3
 import time
 import threading
+import random
 
 from ncov_post import ncov_post
 
@@ -21,21 +22,22 @@ need_to_post = False
 while True:
     conn = sqlite3.connect('ncov_save_list.db')
     c = conn.cursor()
+    c1 = conn.cursor()
     if need_to_post:
-        cursor = c.execute("SELECT ROWID, STUDENT_ID, PASSWORD, LAST_SAVE_DATE  from NCOV_ACCOUNT")
+        cursor = c.execute("SELECT ROWID, STUDENT_ID, PASSWORD, LAST_SAVE_DATE from NCOV_ACCOUNT")
 
         first_failed_rowid = []
 
         time_start = time.time()
         for index, id, password, last_save_date in c:
             # 如果正常执行,status会被之后的返回值更新,只有在出现未catch的异常时才会将这条写入数据库
-            status = {'e': -1, 'm': '出现未知错误', 'd': {}}
+            status, cookie = {'e': -1, 'm': '出现未知错误', 'd': {}}, {'eai-sess': None, 'UUkey': None}
             if last_save_date is not None and mday_from_second(last_save_date) != current_mday():
                 print('正在为第%d个人打卡' % index)
                 try:
-                    status = ncov_post(id, password)
-                    c.execute("UPDATE NCOV_ACCOUNT set LAST_SAVE_DATE = ?,FORMATTED_DATE= ? where ROWID=?",
-                              (time.time(), time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), index))
+                    status, cookie = ncov_post(id, password)
+                    c1.execute("UPDATE NCOV_ACCOUNT set LAST_SAVE_DATE = ?,FORMATTED_DATE= ? where ROWID=?",
+                               (time.time(), time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), index))
                 except ConnectionError:
                     print('此人打卡出现异常')
                     first_failed_rowid.append(index)
@@ -44,9 +46,9 @@ while True:
             elif last_save_date is None:
                 print('正在为第%d个新人打卡' % index)
                 try:
-                    status = ncov_post(id, password)
-                    c.execute("UPDATE NCOV_ACCOUNT set LAST_SAVE_DATE = ?,FORMATTED_DATE= ? where ROWID=?",
-                              (time.time(), time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), index))
+                    status, cookie = ncov_post(id, password)
+                    c1.execute("UPDATE NCOV_ACCOUNT set LAST_SAVE_DATE = ?,FORMATTED_DATE= ? where ROWID=?",
+                               (time.time(), time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), index))
                 except ConnectionError:
                     print("此人打卡出现异常")
                     first_failed_rowid.append(index)
@@ -55,10 +57,14 @@ while True:
             else:
                 print('第%d个人今天已经打过了' % index)
                 continue
-            c.execute("INSERT INTO NCOV_SAVE_HISTORY (STUDENT_ID, TIMESTAMP, STATUS_CODE, MESSAGE, DETAIL, FORMATTED_DATE)\
-            VALUES (?,?,?,?,?,?)", (id, time.time(), status['e'], status['m'], str(status['d']),
-                                    time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())))
+            if status['e'] == 2 or status['e'] == 3:
+                c1.execute("UPDATE NCOV_ACCOUNT set FAILED_ATTEMPT = ? where ROWID = ?", (1, index))
+            c1.execute("INSERT INTO NCOV_SAVE_HISTORY (STUDENT_ID, TIMESTAMP, STATUS_CODE, MESSAGE, DETAIL, FORMATTED_DATE, EAI_SESS, UUID)\
+            VALUES (?,?,?,?,?,?,?,?)", (id, time.time(), status['e'], status['m'], str(status['d']),
+                                        time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), cookie['eai-sess'],
+                                        cookie['UUkey']))
             conn.commit()
+
         elapsed_time = time.time() - time_start
         print("本轮打卡总用时为%.3fs\n" % elapsed_time)
         conn.close()

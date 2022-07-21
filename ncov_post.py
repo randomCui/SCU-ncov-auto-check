@@ -8,6 +8,7 @@ import requests
 
 from UA_login_structure import UA_login_form
 
+UA_front_302 = r"https://wfw.scu.edu.cn/ncov/wap/default/index"
 UA_front = r'https://ua.scu.edu.cn/login?service=https%3A%2F%2Fwfw.scu.edu.cn%2Fa_scu%2Fapi%2Fsso%2Fcas-index%3Fredirect%3Dhttps%253A%252F%252Fwfw.scu.edu.cn%252Fncov%252Fwap%252Fdefault%252Findex'
 UA_login = r'https://ua.scu.edu.cn/login'
 
@@ -20,11 +21,22 @@ headers = {
 }
 
 
+def extract_cookie_include_history(response):
+    cookies = {}
+    for key, value in response.cookies.get_dict().items():
+        cookies[key] = value
+    for history in response.history:
+        for key, value in history.cookies.get_dict().items():
+            cookies[key] = value
+    return cookies
+
+
 def ncov_post(ID, password):
     failed_retry = 0
     while (failed_retry < 5):
         with requests.Session() as s:
-            page = s.get(UA_front, headers=headers)
+            page = s.get(UA_front_302, headers=headers)
+            cookie = extract_cookie_include_history(page)
             soup = bs4.BeautifulSoup(page.text, 'html.parser')
             script_text = soup.select("script")[3].text
             captcha_data = re.search(r"id: '(\d*)'", script_text, flags=re.S)
@@ -70,6 +82,7 @@ def ncov_post(ID, password):
                 url=UA_login,
                 data=UA_login_form
             )
+
             if wfw_response.status_code == requests.codes['ok']:
                 print("验证成功，正在进入填报页面...\t\t", end='')
                 print("<httpResponse[%d]>" % wfw_response.status_code)
@@ -81,7 +94,7 @@ def ncov_post(ID, password):
 
     if failed_retry >= 5:
         print("无法登陆统一认证平台，请检查账号密码是否正确")
-        return {'e': 2, 'm': '无法登陆统一认证平台，请检查账号密码是否正确', 'd': {}}
+        return {'e': 2, 'm': '无法登陆统一认证平台，请检查账号密码是否正确', 'd': {}}, cookie
 
     soup1 = bs4.BeautifulSoup(wfw_response.text, 'html.parser')
     info = soup1.select("script", {"type": "text/javascript"})[10].text
@@ -95,18 +108,17 @@ def ncov_post(ID, password):
     info_1["ismoved"] = '0'
     info_1["szgjcs"] = ''
 
-    # info_1_payload = json.dumps(info_1)
-    # print(info_1_payload)
-
     save_response = s.post(url=wfw_save_url, headers=headers, data=info_1)
     if save_response.json()['e'] == 0:
         print('打卡成功\t\t\t\t', end='')
+
         print("<httpResponse[%d]>" % save_response.status_code)
     else:
         print('打卡失败,失败信息:', end='')
         print(save_response.json()['m'] + '\t', end='')
-        print("<httpResponse[%d]>" % save_response.status_code)
-    return save_response.json()
+        print("<httpResponse[%d]>\t" % save_response.status_code, end='')
+        print("Error code:%d" % save_response.json()['e'])
+    return save_response.json(), cookie
 
 
 if __name__ == '__main__':
