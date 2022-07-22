@@ -2,9 +2,10 @@ import base64
 import json
 import re
 import time
-
+import os
 import bs4
 import requests
+import hashlib
 
 from UA_login_structure import UA_login_form
 
@@ -20,6 +21,11 @@ headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 }
 
+abs_path = os.path.abspath(__file__)
+dir_path = os.path.dirname(abs_path)
+captcha_img_200 = r"img_200"
+captcha_img_401 = r"img_401"
+
 
 def extract_cookie_include_history(response):
     cookies = {}
@@ -29,6 +35,23 @@ def extract_cookie_include_history(response):
         for key, value in history.cookies.get_dict().items():
             cookies[key] = value
     return cookies
+
+def save_captcha_img(img_response, status_code, predict_captcha):
+    filename = predict_captcha + "_" + md5(img_response.content)
+    if status_code == requests.codes['ok']:
+        path = os.path.join(dir_path, captcha_img_200, filename) + '.png'
+    elif status_code == requests.codes['unauthorized']:
+        path = os.path.join(dir_path, captcha_img_401, filename) + '.png'
+    else:
+        return
+    with open(path, 'wb') as f:
+        f.write(img_response.content)
+
+
+
+def md5(b_content):
+    hash_md5 = hashlib.md5(b_content)
+    return hash_md5.hexdigest()
 
 
 def ncov_post(ID, password):
@@ -82,6 +105,9 @@ def ncov_post(ID, password):
                 url=UA_login,
                 data=UA_login_form
             )
+
+            # 根据是否成功登陆微服务决定保存在哪个文件夹中
+            save_captcha_img(img_response, wfw_response.status_code, captcha_break['message'])
 
             if wfw_response.status_code == requests.codes['ok']:
                 print("验证成功，正在进入填报页面...\t\t", end='')

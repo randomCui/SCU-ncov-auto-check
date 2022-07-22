@@ -24,12 +24,16 @@ while True:
     c = conn.cursor()
     c1 = conn.cursor()
     if need_to_post:
-        cursor = c.execute("SELECT ROWID, STUDENT_ID, PASSWORD, LAST_SAVE_DATE from NCOV_ACCOUNT")
+        cursor = c.execute("SELECT ROWID, STUDENT_ID, PASSWORD, LAST_SAVE_DATE, ENABLE from NCOV_ACCOUNT")
 
         first_failed_rowid = []
 
         time_start = time.time()
-        for index, id, password, last_save_date in c:
+        for index, id, password, last_save_date,enable in c:
+            # 手动超控
+            if enable == 0:
+                print("第[%d]个人手动关闭打卡功能" % index)
+                continue
             # 如果正常执行,status会被之后的返回值更新,只有在出现未catch的异常时才会将这条写入数据库
             status, cookie = {'e': -1, 'm': '出现未知错误', 'd': {}}, {'eai-sess': None, 'UUkey': None}
             if last_save_date is not None and mday_from_second(last_save_date) != current_mday():
