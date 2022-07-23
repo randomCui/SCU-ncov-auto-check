@@ -28,6 +28,13 @@ while True:
 
         first_failed_rowid = []
 
+        # e: -1 出现未知错误
+        # e: 0 操作成功
+        # e: 1 今天已经填报过了
+        # e: 2 无法登录验证平台，检查账号密码
+        # e: 3 网络连接失败
+        # e: 4 网络连接超时
+
         time_start = time.time()
         for index, id, password, last_save_date,enable in c:
             # 手动超控
@@ -46,6 +53,10 @@ while True:
                     print('此人打卡出现异常')
                     first_failed_rowid.append(index)
                     status = {'e': 3, 'm': '网络连接失败', 'd': {}}
+                except TimeoutError:
+                    print('连接超时')
+                    first_failed_rowid.append(index)
+                    status = {'e': 4, 'm': '网络连接超时', 'd': {}}
 
             elif last_save_date is None:
                 print('正在为第%d个新人打卡' % index)
@@ -57,11 +68,15 @@ while True:
                     print("此人打卡出现异常")
                     first_failed_rowid.append(index)
                     status = {'e': 3, 'm': '网络连接失败', 'd': {}}
+                except TimeoutError:
+                    print('连接超时')
+                    first_failed_rowid.append(index)
+                    status = {'e': 4, 'm': '网络连接超时', 'd': {}}
 
             else:
                 print('第%d个人今天已经打过了' % index)
                 continue
-            if status['e'] == 2 or status['e'] == 3:
+            if status['e'] == 2 or status['e'] == 3 or status['e'] == 4:
                 c1.execute("UPDATE NCOV_ACCOUNT set FAILED_ATTEMPT = ? where ROWID = ?", (1, index))
             c1.execute("INSERT INTO NCOV_SAVE_HISTORY (STUDENT_ID, TIMESTAMP, STATUS_CODE, MESSAGE, DETAIL, FORMATTED_DATE, EAI_SESS, UUID)\
             VALUES (?,?,?,?,?,?,?,?)", (id, time.time(), status['e'], status['m'], str(status['d']),

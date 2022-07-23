@@ -36,6 +36,7 @@ def extract_cookie_include_history(response):
             cookies[key] = value
     return cookies
 
+
 def save_captcha_img(img_response, status_code, predict_captcha):
     filename = predict_captcha + "_" + md5(img_response.content)
     if status_code == requests.codes['ok']:
@@ -46,7 +47,6 @@ def save_captcha_img(img_response, status_code, predict_captcha):
         return
     with open(path, 'wb') as f:
         f.write(img_response.content)
-
 
 
 def md5(b_content):
