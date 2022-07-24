@@ -125,16 +125,26 @@ def ncov_post(ID, password):
     soup1 = bs4.BeautifulSoup(wfw_response.text, 'html.parser')
     info = soup1.select("script", {"type": "text/javascript"})[10].text
     result = re.findall(r"oldInfo: (.*),", info, flags=re.S & re.M)
+    result_new = re.findall(r'def = (.*?);', info, flags=re.S & re.M)
+    info_new = json.loads(result_new[0])
     # 按照上一次的接着填报
-    info_1 = json.loads(result[0])
-    info_1["gwszdd"] = ''
-    info_1["sfyqjzgc"] = ''
-    info_1["jrsfqzys"] = ''
-    info_1["jrsfqzfy"] = ''
-    info_1["ismoved"] = '0'
-    info_1["szgjcs"] = ''
+    info_old = json.loads(result[0])
 
-    save_response = s.post(url=wfw_save_url, headers=headers, data=info_1)
+    # for key, value in info_new.items():
+    #     try:
+    #         if value != info_old[key]:
+    #             print(key,"\n" , value,"\n", info_old[key])
+    #     except KeyError:
+    #         print(key)
+    #         print(KeyError)
+
+    info_new['address'] = info_old['address']
+    info_new['area'] = info_old['area']
+    info_new['city'] = info_old['city']
+    info_new['ismoved'] = 0
+
+
+    save_response = s.post(url=wfw_save_url, headers=headers, data=info_new)
     if save_response.json()['e'] == 0:
         print('打卡成功\t\t\t\t', end='')
 

@@ -92,7 +92,7 @@ while True:
 
     if current_mday() == global_update:
         current_time = time.localtime()
-        time_wait = (60 - current_time.tm_min) * 60 + (60 - current_time.tm_sec)
+        time_wait = (60 - current_time.tm_min -1) * 60 + (60 - current_time.tm_sec)
         print("%s 全部填报完毕,下一次检查在%d秒后" % (time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), time_wait))
         need_to_post = False
         time.sleep(time_wait)
