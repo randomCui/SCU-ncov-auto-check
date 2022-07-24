@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import re
 import time
 import os
@@ -72,14 +73,17 @@ def ncov_post(ID, password):
                                  headers=headers,
                                  params=captcha_payload)
             if img_response.status_code == requests.codes['ok']:
-                print("成功获取验证码图片\t\t\t", end='')
+                logging.info(f"成功获取验证码图片\t\t\t\t<httpRespond>[{img_response.status_code}]")
+                # print("成功获取验证码图片\t\t\t", end='')
             else:
-                print("获取图片失败\t\t", end='')
-            print("<httpResponse[%d]>" % img_response.status_code)
+                logging.warning(f"获取图片失败\t\t\t<httpRespond>[{img_response.status_code}]")
+                # print("获取图片失败\t\t", end='')
+            # print("<httpResponse[%d]>" % img_response.status_code)
 
             execution_string = soup.find('input', {'name': 'execution'})['value']
 
-            print("将图片转发至本地验证码服务器...\t\t%s" % captcha_break_url)
+            logging.info(f"将图片转发至本地验证码服务器...\t\t{captcha_break_url}")
+            # print("将图片转发至本地验证码服务器...\t\t%s" % captcha_break_url)
             break_time = time.time()
             base64EncodedStr = base64.b64encode(img_response.content)
             captcha_to_break = {
@@ -89,12 +93,14 @@ def ncov_post(ID, password):
             captcha_break = json.loads(captcha_break_response.text)
             break_time = time.time() - break_time
             if captcha_break_response.status_code == requests.codes['ok']:
-                print("获取预测验证码成功\t", end='')
+                logging.info(f"获取预测验证码成功\t预测结果为: {captcha_break['message']} \t[{break_time:.3f}]")
+                # print("获取预测验证码成功\t", end='')
             else:
-                print("获取预测失败\t", end='')
+                logging.warning(f"获取预测失败")
+                # print("获取预测失败\t", end='')
                 continue
 
-            print("预测结果为: %s \t[%.3fs]" % (captcha_break['message'], break_time))
+            # print("预测结果为: %s \t[%.3fs]" % (captcha_break['message'], break_time))
 
             UA_login_form['username'] = ID
             UA_login_form['password'] = password
@@ -110,16 +116,19 @@ def ncov_post(ID, password):
             save_captcha_img(img_response, wfw_response.status_code, captcha_break['message'])
 
             if wfw_response.status_code == requests.codes['ok']:
-                print("验证成功，正在进入填报页面...\t\t", end='')
-                print("<httpResponse[%d]>" % wfw_response.status_code)
+                logging.info(f"验证成功，正在进入填报页面...\t\t<httpResponse[{wfw_response.status_code}]>")
+                # print("验证成功，正在进入填报页面...\t\t", end='')
+                # print("<httpResponse[%d]>" % wfw_response.status_code)
                 break
             elif wfw_response.status_code == requests.codes['unauthorized']:
-                print("验证失败，正在进行第[%d]次重试\t\t" % failed_retry, end='')
-                print("<httpResponse[%d]>" % wfw_response.status_code)
+                logging.info(f"验证失败，正在进行第[{failed_retry + 1}]次重试\t\t<httpResponse[{wfw_response.status_code}]>")
+                # print("验证失败，正在进行第[%d]次重试\t\t" % failed_retry, end='')
+                # print("<httpResponse[%d]>" % wfw_response.status_code)
                 failed_retry += 1
 
     if failed_retry >= 5:
-        print("无法登陆统一认证平台，请检查账号密码是否正确")
+        logging.warning("无法登陆统一认证平台，请检查账号密码是否正确")
+        # print("无法登陆统一认证平台，请检查账号密码是否正确")
         return {'e': 2, 'm': '无法登陆统一认证平台，请检查账号密码是否正确', 'd': {}}, cookie
 
     soup1 = bs4.BeautifulSoup(wfw_response.text, 'html.parser')
@@ -143,17 +152,18 @@ def ncov_post(ID, password):
     info_new['city'] = info_old['city']
     info_new['ismoved'] = 0
 
-
     save_response = s.post(url=wfw_save_url, headers=headers, data=info_new)
     if save_response.json()['e'] == 0:
-        print('打卡成功\t\t\t\t', end='')
-
-        print("<httpResponse[%d]>" % save_response.status_code)
+        logging.info(f"打卡成功\t\t\t\t<httpResponse[{save_response.status_code}]>")
+        # print('打卡成功\t\t\t\t', end='')
+        #
+        # print("<httpResponse[%d]>" % save_response.status_code)
     else:
-        print('打卡失败,失败信息:', end='')
-        print(save_response.json()['m'] + '\t', end='')
-        print("<httpResponse[%d]>\t" % save_response.status_code, end='')
-        print("Error code:%d" % save_response.json()['e'])
+        logging.warning(f"打卡失败:{save_response.json()}\t<httpResponse[{save_response.status_code}]>")
+        # print('打卡失败,失败信息:', end='')
+        # print(save_response.json()['m'] + '\t', end='')
+        # print("<httpResponse[%d]>\t" % save_response.status_code, end='')
+        # print("Error code:%d" % save_response.json()['e'])
     return save_response.json(), cookie
 
 
