@@ -154,7 +154,7 @@ def ncov_post(ID, password):
 
     save_response = s.post(url=wfw_save_url, headers=headers, data=info_new)
     if save_response.json()['e'] == 0:
-        logging.info(f"打卡成功\t\t\t\t<httpResponse[{save_response.status_code}]>")
+        logging.info(f"打卡成功\t\t\t\t\t\t<httpResponse[{save_response.status_code}]>")
         # print('打卡成功\t\t\t\t', end='')
         #
         # print("<httpResponse[%d]>" % save_response.status_code)
