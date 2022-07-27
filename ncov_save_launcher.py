@@ -10,10 +10,10 @@ global_update = time.localtime().tm_min
 check_period = 600
 
 
-def count_down_to(trigger_time: datetime) -> float:
+def second_to_next_hour(trigger_time: datetime) -> float:
     now = datetime.now()
-    due = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    return (now - due).total_seconds()
+    due = datetime.now().replace(hour=trigger_time.hour+1, minute=0, second=0, microsecond=0)
+    return (due - now).total_seconds()
 
 
 def mday_from_second(x):
@@ -144,7 +144,7 @@ while True:
 
     if current_mday() == global_update:
         current_time = time.localtime()
-        time_wait = count_down_to()
+        time_wait = second_to_next_hour(datetime.now())
         logging.info(f"全部填报完毕 下一次检查在{time_wait:.3f}s后")
         # print("%s 全部填报完毕,下一次检查在%d秒后" % (time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), time_wait))
         need_to_post = False
