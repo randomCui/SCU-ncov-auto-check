@@ -93,7 +93,7 @@ def ncov_post(ID, password):
             captcha_break = json.loads(captcha_break_response.text)
             break_time = time.time() - break_time
             if captcha_break_response.status_code == requests.codes['ok']:
-                logging.info(f"获取预测验证码成功\t预测结果为: {captcha_break['message']} \t[{break_time:.3f}]")
+                logging.info(f"获取预测验证码成功\t预测结果为: {captcha_break['message']} \t[{break_time:.3f}s]")
                 # print("获取预测验证码成功\t", end='')
             else:
                 logging.warning(f"获取预测失败")
