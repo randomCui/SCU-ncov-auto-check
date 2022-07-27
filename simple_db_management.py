@@ -156,19 +156,19 @@ def main():
         event.app.exit()
 
     # Style.
-    style = Style(
-        [
-            ("output-field", "bg:#000044 #ffffff"),
-            ("input-field", "bg:#000000 #ffffff"),
-            ("line", "#004400"),
-        ]
-    )
+    # style = Style(
+    #     [
+    #         ("output-field", "bg:#000044 #ffffff"),
+    #         ("input-field", "bg:#000000 #ffffff"),
+    #         ("line", "#004400"),
+    #     ]
+    # )
 
     # Run application.
     application = Application(
         layout=Layout(container, focused_element=input_field),
         key_bindings=kb,
-        style=style,
+        # style=style,
         mouse_support=True,
         full_screen=True,
     )
