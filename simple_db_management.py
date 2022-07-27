@@ -87,7 +87,7 @@ def main():
                 output += f'无效的密码 请重新输入\n'
             else:
                 with connection as c:
-                    c.execute(r"INSERT INTO NCOV_ACCOUNT (STUDENT_ID, PASSWORD, ENABLE) VALUES (?, ?)", \
+                    c.execute(r"INSERT INTO NCOV_ACCOUNT (STUDENT_ID, PASSWORD, ENABLE) VALUES (?, ?, ?)", \
                               (arg_list[1], arg_list[2], 1)
                               )
                 output += f'成功将账号:{arg_list[1]} 密码:{arg_list[2]} 录入数据库\n'
