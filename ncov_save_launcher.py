@@ -3,12 +3,17 @@ import time
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import os, sys
-import datetime as dt
-
+from datetime import datetime, timedelta
 from ncov_post import ncov_post
 
 global_update = time.localtime().tm_min
 check_period = 600
+
+
+def count_down_to(trigger_time: datetime) -> float:
+    now = datetime.now()
+    due = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    return (now - due).total_seconds()
 
 
 def mday_from_second(x):
@@ -23,8 +28,8 @@ LOG_FILE_PATH = os.getcwd() + "/logs"
 if not os.path.exists(LOG_FILE_PATH):
     os.makedirs(LOG_FILE_PATH)
 
-LOG_FILE = LOG_FILE_PATH + "/" + dt.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d %H_%M_%S') + ".log"
-LOG_FILE_INFO = LOG_FILE_PATH + "/ez_"+ dt.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d %H_%M_%S') + ".log"
+LOG_FILE = LOG_FILE_PATH + "/" + datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d %H_%M_%S') + ".log"
+LOG_FILE_INFO = LOG_FILE_PATH + "/ez_" + datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d %H_%M_%S') + ".log"
 
 logFormatter = logging.Formatter("[%(levelname)s] [%(asctime)s] %(message)s")
 file_handler = logging.FileHandler(f"{LOG_FILE}")
@@ -116,10 +121,18 @@ while True:
                 continue
             if status['e'] == 2 or status['e'] == 3 or status['e'] == 4:
                 c1.execute("UPDATE NCOV_ACCOUNT set FAILED_ATTEMPT = ? where ROWID = ?", (1, index))
-            c1.execute("INSERT INTO NCOV_SAVE_HISTORY (STUDENT_ID, TIMESTAMP, STATUS_CODE, MESSAGE, DETAIL, FORMATTED_DATE, EAI_SESS, UUID)\
-            VALUES (?,?,?,?,?,?,?,?)", (id, time.time(), status['e'], status['m'], str(status['d']),
-                                        time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), cookie['eai-sess'],
-                                        cookie['UUkey']))
+            c1.execute(
+                "INSERT INTO NCOV_SAVE_HISTORY (STUDENT_ID, TIMESTAMP, STATUS_CODE, MESSAGE, DETAIL, FORMATTED_DATE, EAI_SESS, UUID) VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    id,
+                    time.time(),
+                    status['e'],
+                    status['m'],
+                    str(status['d']),
+                    time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), cookie['eai-sess'],
+                    cookie['UUkey']
+                )
+            )
             conn.commit()
 
         elapsed_time = time.time() - time_start
@@ -131,7 +144,7 @@ while True:
 
     if current_mday() == global_update:
         current_time = time.localtime()
-        time_wait = (60 - current_time.tm_min - 1) * 60 + (60 - current_time.tm_sec)
+        time_wait = count_down_to()
         logging.info(f"全部填报完毕 下一次检查在{time_wait:.3f}s后")
         # print("%s 全部填报完毕,下一次检查在%d秒后" % (time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), time_wait))
         need_to_post = False
