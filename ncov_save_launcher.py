@@ -12,7 +12,7 @@ check_period = 600
 
 def second_to_next_hour(trigger_time: datetime) -> float:
     now = datetime.now()
-    due = datetime.now().replace(hour=trigger_time.hour+1, minute=0, second=0, microsecond=0)
+    due = trigger_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     return (due - now).total_seconds()
 
 
