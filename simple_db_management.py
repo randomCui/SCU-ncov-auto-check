@@ -1,5 +1,5 @@
 """
-A simple example of a calculator program.
+A simple example of a database manipulate program.
 This could be used as inspiration for a REPL.
 """
 from prompt_toolkit2.application import Application
@@ -20,7 +20,7 @@ delete          [ID]               // 删除用户
 change_password [ID] [password]    // 改变密码
 enable          [ID] [true/false]  // 开关特定账户打卡功能
 clear_timestamp [ID]               // 清除某账户上次打卡日期时间戳
-
+list                               // 展示所有保存账户状态 
 按tab可以补全命令
 使用 Ctrl + C 退出
 
@@ -35,6 +35,7 @@ def main():
         'change_password',
         'enable',
         'clear_timestamp',
+        'list'
     ]
 
     # The layout.
@@ -78,7 +79,7 @@ def main():
             output += f'指令输入错误\n'
 
         # 检查指令参数是否正确
-        elif len(arg_list) == 1 or len(arg_list[1]) != 13 or not arg_list[1].isdigit():
+        elif (len(arg_list) == 1 or len(arg_list[1]) != 13 or not arg_list[1].isdigit()) and arg_list[0] != 'list':
             output += f'无效的学号 请检查输入\n'
 
         # 根据不同参数设置不同处理逻辑
@@ -136,6 +137,15 @@ def main():
                               (arg_list[1],)
                               )
                 output += f'成功清除{arg_list[1]} 的时间戳'
+
+        elif arg_list[0] == 'list':
+            if len(arg_list) > 1:
+                output += f'未知参数\n'
+            else:
+                with connection as c:
+                    output += f'         学号              密码   启用             上次打卡\n'
+                    for student_id, password, enable, formatted_date in c.execute('SELECT STUDENT_ID, PASSWORD, ENABLE, FORMATTED_DATE FROM NCOV_ACCOUNT'):
+                        output+=f'{student_id:>13}{password:>18}{enable:>5}{formatted_date:>23}\n'
 
         new_text = output_field.text + output
 
