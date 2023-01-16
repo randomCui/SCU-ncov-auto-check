@@ -8,17 +8,20 @@ import time
 
 import bs4
 import requests
+from requests.auth import HTTPProxyAuth
 
 from UA_login_structure import UA_login_form
+from proxy_config import proxies
+from enum import Enum, unique
 
-UA_front_302 = r"https://wfw.scu.edu.cn/ncov/wap/default/index"
-UA_front = r'https://ua.scu.edu.cn/login?service=https%3A%2F%2Fwfw.scu.edu.cn%2Fa_scu%2Fapi%2Fsso%2Fcas-index%3Fredirect%3Dhttps%253A%252F%252Fwfw.scu.edu.cn%252Fncov%252Fwap%252Fdefault%252Findex'
-UA_login = r'https://ua.scu.edu.cn/login'
+NCOV_FORM_PAGE = r"https://wfw.scu.edu.cn/ncov/wap/default/index"
+UA_LOGIN_PAGE = r'https://ua.scu.edu.cn/login?service=https%3A%2F%2Fwfw.scu.edu.cn%2Fa_scu%2Fapi%2Fsso%2Fcas-index%3Fredirect%3Dhttps%253A%252F%252Fwfw.scu.edu.cn%252Fncov%252Fwap%252Fdefault%252Findex'
+UA_LOGIN = r'https://ua.scu.edu.cn/login'
 
-UA_captcha_url = r'https://ua.scu.edu.cn/captcha'
-captcha_break_url = r'http://localhost:19952/captcha/v1'
+UA_CAPTCHA = r'https://ua.scu.edu.cn/captcha'
+CAPTCHA_BREAK = r'http://localhost:19952/captcha/v1'
 
-wfw_save_url = r'https://wfw.scu.edu.cn/ncov/wap/default/save'
+WFW_SAVE_URL = r'https://wfw.scu.edu.cn/ncov/wap/default/save'
 headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 }
@@ -27,16 +30,6 @@ abs_path = os.path.abspath(__file__)
 dir_path = os.path.dirname(abs_path)
 captcha_img_200 = r"img_200"
 captcha_img_401 = r"img_401"
-
-
-def extract_cookie_include_history(response):
-    cookies = {}
-    for key, value in response.cookies.get_dict().items():
-        cookies[key] = value
-    for history in response.history:
-        for key, value in history.cookies.get_dict().items():
-            cookies[key] = value
-    return cookies
 
 
 def save_captcha_img(img_response, status_code, predict_captcha):
@@ -55,14 +48,20 @@ def md5(b_content):
     hash_md5 = hashlib.md5(b_content)
     return hash_md5.hexdigest()
 
-
-# def ncov_post_handler(ID, password):
-#     pass
+@unique
+class LoginStatus (Enum):
+    success = 0
+    reach_max_retry = 1
+    cookie_failed_and_no_pwd = 2
 
 
 class NcovPostHandler:
     def __init__(self, stu_id: str, password: str, cookie: dict = None):
         self.s = requests.Session()
+
+        # 如果不需要代理直接把这一行注释掉就行
+        self.s.proxies = proxies
+
         self.cookie = cookie
         self.stu_id = stu_id
         self.password = password
@@ -77,14 +76,15 @@ class NcovPostHandler:
 
         # 以下是打卡所需内容
         self.info_to_post = None
+        self.result = None
 
     def init_session(self) -> (requests.Response, dict[str, str]):
         try:
-            scu_ua_platform_page = self.s.get(UA_front_302, headers=headers)
+            scu_ua_platform_page = self.s.get(NCOV_FORM_PAGE, headers=headers)
         except ConnectionError as err:
             logging.warning('访问登录页面失败')
             raise err
-        cookie = extract_cookie_include_history(scu_ua_platform_page)
+        cookie = self.extract_cookie_include_history(scu_ua_platform_page)
         return scu_ua_platform_page, cookie
 
     def login_with_password(self) -> bool:
@@ -105,12 +105,28 @@ class NcovPostHandler:
             # 说明登录成功
             return True
 
-    def login(self):
-        if self.cookie is None:
-            self.login_with_password()
-        else:
-            if not self.login_with_cookie():
-                self.login_with_password()
+    def login(self, max_retry=1) -> LoginStatus:
+        for i in range(max_retry):
+            if self.cookie is None:
+                if self.login_with_password():
+                    # 如果使用账号密码登录成功，就直接退出循环
+                    return LoginStatus.success
+            else:
+                if not self.login_with_cookie():
+                    # 如果cookie无法登录，说明cookie已过期
+                    self.cookie = None
+                    # 如果不提供账号密码，无法登录，提示cookie过期
+                    if self.stu_id is None or self.password is None:
+                        return LoginStatus.cookie_failed_and_no_pwd
+                    # 转为账号密码登录
+                    if self.login_with_password():
+                        # 账号密码登录成功就直接退出
+                        return LoginStatus.success
+                else:
+                    # 如果cookie登陆成功，直接退出
+                    return LoginStatus.success
+
+        return LoginStatus.reach_max_retry
 
     def get_last_data(self):
         return self.build_post_info_from_page()
@@ -119,7 +135,7 @@ class NcovPostHandler:
         return self.post_info_to_server()
 
     def login_with_cookie(self) -> bool:
-        self.wfw_response = self.s.get(UA_front_302,
+        self.wfw_response = self.s.get(NCOV_FORM_PAGE,
                                        cookies=self.cookie,
                                        headers=headers
                                        )
@@ -127,11 +143,12 @@ class NcovPostHandler:
 
     def post_info_to_server(self):
         assert self.info_to_post is not None
-        res = self.s.post(wfw_save_url,
-                           data=self.info_to_post,
-                           headers=headers,
+        res = self.s.post(WFW_SAVE_URL,
+                          data=self.info_to_post,
+                          headers=headers,
                           cookies=self.cookie
-                           )
+                          )
+        self.result = res.json()
         return res
 
     def build_post_info_from_page(self) -> dict:
@@ -174,8 +191,18 @@ class NcovPostHandler:
         execution_string = soup.find('input', {'name': 'execution'})['value']
         return execution_string
 
+    @staticmethod
+    def extract_cookie_include_history(response):
+        cookies = {}
+        for key, value in response.cookies.get_dict().items():
+            cookies[key] = value
+        for history in response.history:
+            for key, value in history.cookies.get_dict().items():
+                cookies[key] = value
+        return cookies
+
     def get_captcha_image_by_id(self, captcha_id: str) -> bytes:
-        img_response = self.s.get(UA_captcha_url,
+        img_response = self.s.get(UA_CAPTCHA,
                                   headers=headers,
                                   params={
                                       "captchaId": captcha_id
@@ -187,7 +214,7 @@ class NcovPostHandler:
 
     @staticmethod
     def break_captcha(captcha_img: bytes) -> str:
-        captcha_break_response = requests.post(captcha_break_url,
+        captcha_break_response = requests.post(CAPTCHA_BREAK,
                                                json={
                                                    "image": base64.b64encode(captcha_img).decode('UTF-8')
                                                })
@@ -208,12 +235,25 @@ class NcovPostHandler:
 
     def post_login_form(self) -> bool:
         self.wfw_response = self.s.post(
-            url=UA_login,
+            url=UA_LOGIN,
             data=UA_login_form
         )
-        for key, value in extract_cookie_include_history(self.wfw_response).items():
+        for key, value in self.extract_cookie_include_history(self.wfw_response).items():
             self.cookie[key] = value
         return self.wfw_response.status_code == requests.codes["ok"]
+
+    def user_to_dict(self) -> dict:
+        return {
+            "stu_id": self.stu_id,
+            "password": self.password,
+            "cookie": self.cookie,
+        }
+
+    def get_cookie(self) -> dict:
+        return self.cookie
+
+    def get_result(self) -> dict:
+        return self.result
 
 
 # def ncov_post(ID, password):
