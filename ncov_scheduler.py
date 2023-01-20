@@ -60,7 +60,10 @@ def post_trigger():
     start = datetime.now()
     next_trigger = one_round_post()
     delta = datetime.now()-start
-    logging.info(f"本轮打卡结束,总用时{str(delta).split('.')[0]+'.'+str(delta).split('.')[1][:3]},距离下次检查还有{next_trigger:.1f}s")
+    if '.' in str(delta):
+        logging.info(f"本轮打卡结束,总用时{str(delta).split('.')[0]+'.'+str(delta).split('.')[1][:3]},距离下次检查还有{next_trigger:.1f}s")
+    else:
+        logging.info(f"本轮打卡结束,总用时{str(delta)},距离下次检查还有{next_trigger:.1f}s")
     time.sleep(next_trigger)
 
 
