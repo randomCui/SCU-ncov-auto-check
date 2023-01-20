@@ -3,15 +3,15 @@ import hashlib
 import json
 import logging
 import os
+import random
 import re
 import time
 
 import bs4
 import requests
-from requests.auth import HTTPProxyAuth
 
 from UA_login_structure import UA_login_form
-from proxy_config import proxies
+# from proxy_config import proxies, auth
 from enum import Enum, unique
 
 NCOV_FORM_PAGE = r"https://wfw.scu.edu.cn/ncov/wap/default/index"
@@ -48,8 +48,9 @@ def md5(b_content):
     hash_md5 = hashlib.md5(b_content)
     return hash_md5.hexdigest()
 
+
 @unique
-class LoginStatus (Enum):
+class Status (Enum):
     success = 0
     reach_max_retry = 1
     cookie_failed_and_no_pwd = 2
@@ -59,8 +60,10 @@ class NcovPostHandler:
     def __init__(self, stu_id: str, password: str, cookie: dict = None):
         self.s = requests.Session()
 
-        # 如果不需要代理直接把这一行注释掉就行
-        self.s.proxies = proxies
+        # 如果不需要代理直接把这几行注释掉就行
+        # self.s.verify = False
+        # self.s.proxies = proxies
+        # self.s.auth = auth
 
         self.cookie = cookie
         self.stu_id = stu_id
@@ -94,7 +97,9 @@ class NcovPostHandler:
         self.img_response = self.get_captcha_image_by_id(captcha_id)
         self.captcha_code = self.break_captcha(self.img_response)
 
-        time.sleep(10)
+        sleep_time = random.random()*10+10
+        logging.info(f"登陆页面加载完成,等待{sleep_time}s")
+        time.sleep(sleep_time)
 
         self.build_login_form()
 
@@ -105,28 +110,28 @@ class NcovPostHandler:
             # 说明登录成功
             return True
 
-    def login(self, max_retry=1) -> LoginStatus:
+    def login(self, max_retry=1) -> Status:
         for i in range(max_retry):
             if self.cookie is None:
                 if self.login_with_password():
                     # 如果使用账号密码登录成功，就直接退出循环
-                    return LoginStatus.success
+                    return Status.success
             else:
                 if not self.login_with_cookie():
                     # 如果cookie无法登录，说明cookie已过期
                     self.cookie = None
                     # 如果不提供账号密码，无法登录，提示cookie过期
                     if self.stu_id is None or self.password is None:
-                        return LoginStatus.cookie_failed_and_no_pwd
+                        return Status.cookie_failed_and_no_pwd
                     # 转为账号密码登录
                     if self.login_with_password():
                         # 账号密码登录成功就直接退出
-                        return LoginStatus.success
+                        return Status.success
                 else:
                     # 如果cookie登陆成功，直接退出
-                    return LoginStatus.success
+                    return Status.success
 
-        return LoginStatus.reach_max_retry
+        return Status.reach_max_retry
 
     def get_last_data(self):
         return self.build_post_info_from_page()
@@ -137,7 +142,7 @@ class NcovPostHandler:
     def login_with_cookie(self) -> bool:
         self.wfw_response = self.s.get(NCOV_FORM_PAGE,
                                        cookies=self.cookie,
-                                       headers=headers
+                                       headers=headers,
                                        )
         return "ua.scu.edu.cn/login" not in self.wfw_response.url
 
