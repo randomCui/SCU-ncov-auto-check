@@ -1,12 +1,14 @@
 /data
 /data_verify
 /img
-/ncov_save_list.db
 /wfw_form.py
-/ncov_save_list1.db
 /.idea
 /logs
 /img_200
 /img_401
 /bfg-1.14.0.jar
 /µ‰÷–µ‰
+/temp
+/venv
+/get_captcha_img.py
+/pack_data.py

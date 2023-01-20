@@ -144,6 +144,7 @@ class NcovPostHandler:
                                        cookies=self.cookie,
                                        headers=headers,
                                        )
+        logging.info(f"正在使用使用cookie登录,转到的网址为:{self.wfw_response.url}")
         return "ua.scu.edu.cn/login" not in self.wfw_response.url
 
     def post_info_to_server(self):
@@ -154,6 +155,7 @@ class NcovPostHandler:
                           cookies=self.cookie
                           )
         self.result = res.json()
+        logging.info("打卡信息已成功提交服务器")
         return res
 
     def build_post_info_from_page(self) -> dict:
@@ -185,15 +187,16 @@ class NcovPostHandler:
             assert len(captcha_id) == 10
 
         except AssertionError as err:
-            logging.critical('验证码id捕获错误，可能是登录页面发生变化')
+            logging.critical('验证码id捕获错误,可能是登录页面发生变化')
             raise err
-
+        logging.info(f"验证码id捕获成功,为:{captcha_id}")
         return captcha_id
 
     @staticmethod
     def extract_execution_string(login_page_text: str) -> str:
         soup = bs4.BeautifulSoup(login_page_text, 'html.parser')
         execution_string = soup.find('input', {'name': 'execution'})['value']
+        logging.info(f"execute string 捕获成功,为:{execution_string}")
         return execution_string
 
     @staticmethod
@@ -213,6 +216,7 @@ class NcovPostHandler:
                                       "captchaId": captcha_id
                                   })
         if img_response.status_code == requests.codes['ok']:
+            logging.info(f"验证码图片获取成功")
             return img_response.content
         else:
             logging.warning('验证码图片获取失败')
