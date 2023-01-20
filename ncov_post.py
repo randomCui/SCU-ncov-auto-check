@@ -6,13 +6,13 @@ import os
 import random
 import re
 import time
+# from proxy_config import proxies, auth
+from enum import Enum, unique
 
 import bs4
 import requests
 
 from UA_login_structure import UA_login_form
-# from proxy_config import proxies, auth
-from enum import Enum, unique
 
 NCOV_FORM_PAGE = r"https://wfw.scu.edu.cn/ncov/wap/default/index"
 UA_LOGIN_PAGE = r'https://ua.scu.edu.cn/login?service=https%3A%2F%2Fwfw.scu.edu.cn%2Fa_scu%2Fapi%2Fsso%2Fcas-index%3Fredirect%3Dhttps%253A%252F%252Fwfw.scu.edu.cn%252Fncov%252Fwap%252Fdefault%252Findex'
@@ -50,7 +50,7 @@ def md5(b_content):
 
 
 @unique
-class Status (Enum):
+class Status(Enum):
     success = 0
     reach_max_retry = 1
     cookie_failed_and_no_pwd = 2
@@ -97,7 +97,7 @@ class NcovPostHandler:
         self.img_response = self.get_captcha_image_by_id(captcha_id)
         self.captcha_code = self.break_captcha(self.img_response)
 
-        sleep_time = random.random()*10+10
+        sleep_time = random.random() * 10 + 10
         logging.info(f"登陆页面加载完成,等待{sleep_time}s")
         time.sleep(sleep_time)
 
@@ -165,7 +165,7 @@ class NcovPostHandler:
         info_to_send = json.loads(match1.group(1))
         # 将要发送的数据先填上昨天的数据
         for key, value in old_info.items():
-            if key not in ["jzxgymrq","jzdezxgymrq","date","created","szsqsfybl","id"]:
+            if key not in ["jzxgymrq", "jzdezxgymrq", "date", "created", "szsqsfybl", "id"]:
                 info_to_send[key] = value
 
         # 这些数据一般都不需要填
@@ -264,6 +264,12 @@ class NcovPostHandler:
     def get_result(self) -> dict:
         return self.result
 
+
+if __name__ == '__main__':
+    handler = NcovPostHandler('学号', '密码', {'这里填cookie对应的字典数据': ''})
+    handler.login()
+    print(handler.get_last_data())
+    print(handler.post_data().json())
 
 # def ncov_post(ID, password):
 #     failed_retry = 0
@@ -375,10 +381,3 @@ class NcovPostHandler:
 #         # print("<httpResponse[%d]>\t" % save_response.status_code, end='')
 #         # print("Error code:%d" % save_response.json()['e'])
 #     return save_response.json(), cookie
-
-
-if __name__ == '__main__':
-    handler = NcovPostHandler()
-    handler.login()
-    print(handler.get_last_data())
-    print(handler.post_data().text)
